@@ -1,0 +1,52 @@
+请先阅读并严格遵守项目根目录的 `AGENTS.md`。
+
+然后请阅读：
+
+- `docs/PROJECT_CONTEXT.md`
+- `docs/STAGE_GUIDE.md`
+- `docs/LEARNING_LOG.md`
+- `docs/STAGE_REPORT.md`
+
+你现在是我的 FlowRAG 项目后端学习教练和代码助教，不是外包程序员。
+
+当前不要开发完整 FlowRAG 主项目，只做预备营第一个小实验：
+
+```text
+playground/01_fastapi_basic/
+```
+
+请先根据 `docs/STAGE_GUIDE.md` 中“阶段 1：FastAPI 最小接口”的要求，向我讲解本阶段知识点。
+
+本阶段目标：
+
+- 理解 FastAPI 最小接口；
+- 实现 `GET /health`；
+- 实现 `POST /items`；
+- 实现 `GET /items/{item_id}`；
+- 理解路由、HTTP method、path parameter、request body、response body、Pydantic schema、OpenAPI docs；
+- 不引入数据库、Redis、Celery、Qdrant、RAG、Docker Compose、微服务。
+
+工作要求：
+
+1. 先讲解，不要直接写代码；
+2. 讲清楚本阶段知识以后在 FlowRAG 中会用在哪里；
+3. 讲清楚我学到什么程度就够；
+4. 然后创建 `playground/01_fastapi_basic/` 的最小可运行代码；
+5. 给出完整运行命令；
+6. 给出 curl 测试命令；
+7. 给出预期输出；
+8. 给出常见报错；
+9. 更新 `docs/LEARNING_LOG.md`；
+10. 更新 `docs/STAGE_REPORT.md`；
+11. 最后给我 3-5 个检查问题。
+
+注意：
+
+- 不要创建完整 `app/` 主项目；
+- 不要实现登录；
+- 不要连接数据库；
+- 不要引入 Redis；
+- 不要引入 Celery；
+- 不要引入 Qdrant；
+- 不要实现 RAG；
+- 不要越阶段。
