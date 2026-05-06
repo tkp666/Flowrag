@@ -438,3 +438,126 @@ cd /home/tkp666/FlowRAG
 - 用户明确同意后，进入阶段 4：MySQL + SQLAlchemy 基础
 - 阶段 4 应继续保持预备营小实验，不直接开发完整 FlowRAG 主项目
 - 阶段 4 重点应放在表、字段、主键、SQLAlchemy model、session、CRUD、事务边界的最小可运行实验
+
+## 2026-05-06 - 阶段 4：MySQL + SQLAlchemy 基础
+
+### 阶段目标
+
+- 理解 MySQL 在 FlowRAG 中负责结构化业务数据，而不是向量检索数据
+- 理解 SQLAlchemy model、Pydantic schema、Session、Repository、Service 的关系
+- 掌握主键、外键、普通索引、唯一约束、联合唯一约束的最小用法
+- 能实现知识库的创建、查询、分页、更新和软删除
+- 能把文档元数据设计迁移到 `documents` 表，理解文档和知识库之间的外键关系
+
+### 完成内容
+
+- 完成小节 1：表、主键、外键、索引、唯一约束、联合唯一约束
+  - 完成 `section_01_table_constraints.py`
+- 完成小节 2：SQLAlchemy model 和 Pydantic schema 的职责边界
+  - 完成 `section_02_model_vs_schema.py`
+  - 追加完成 `section_02b_sqlalchemy_model_schema.py`
+- 完成小节 3：Session 和 CRUD
+  - 完成 `section_03_session_crud.py`
+  - 追加实现“修改某个用户用户名”的练习
+- 完成小节 4：分页查询
+  - 完成 `section_04_pagination.py`
+- 完成阶段 4 主体实现
+  - `GET /health`
+  - `POST /knowledge-bases`
+  - `GET /knowledge-bases/{kb_id}`
+  - `GET /knowledge-bases`
+  - `PATCH /knowledge-bases/{kb_id}`
+  - `DELETE /knowledge-bases/{kb_id}`
+- 完成阶段 4 综合课后动手题
+  - `lesson_04_document_metadata_design.py`
+  - 设计 `documents` 表、文档创建、文档分页列表、文档软删除
+- 完成阶段 4 检查问题
+  - 用户能解释 schema 边界、session 三步、分页 total、软删除过滤
+  - 外键概念已重点纠偏：外键管关系合法性，索引管查询速度
+
+### 新增 / 修改文件
+
+- `playground/04_mysql_sqlalchemy/README.md`
+- `playground/04_mysql_sqlalchemy/requirements.txt`
+- `playground/04_mysql_sqlalchemy/.gitignore`
+- `playground/04_mysql_sqlalchemy/app/db.py`
+- `playground/04_mysql_sqlalchemy/app/models.py`
+- `playground/04_mysql_sqlalchemy/app/schemas.py`
+- `playground/04_mysql_sqlalchemy/app/repositories.py`
+- `playground/04_mysql_sqlalchemy/app/services.py`
+- `playground/04_mysql_sqlalchemy/app/routers.py`
+- `playground/04_mysql_sqlalchemy/app/main.py`
+- `playground/04_mysql_sqlalchemy/check_stage4.py`
+- `playground/04_mysql_sqlalchemy/check_stage4_detailed.py`
+- `playground/04_mysql_sqlalchemy/demo_update_name_conflict.py`
+- `playground/04_mysql_sqlalchemy/homework/section_01_table_constraints.py`
+- `playground/04_mysql_sqlalchemy/homework/section_02_model_vs_schema.py`
+- `playground/04_mysql_sqlalchemy/homework/section_02b_sqlalchemy_model_schema.py`
+- `playground/04_mysql_sqlalchemy/homework/section_03_session_crud.py`
+- `playground/04_mysql_sqlalchemy/homework/section_04_pagination.py`
+- `playground/04_mysql_sqlalchemy/homework/lesson_04_document_metadata_design.py`
+- `docs/LEARNING_LOG.md`
+- `docs/STAGE_REPORT.md`
+
+### 关键文件作用
+
+- `app/db.py`：创建数据库 engine、SessionLocal、初始化表结构
+- `app/models.py`：定义 `users` 和 `knowledge_bases` 的 SQLAlchemy model
+- `app/schemas.py`：定义知识库 API 请求和响应 schema
+- `app/repositories.py`：封装数据库查询、创建、更新、软删除、分页统计能力
+- `app/services.py`：处理知识库业务规则，例如归属、重名、软删除过滤、响应组装
+- `app/routers.py`：提供 FastAPI 路由，并把业务错误映射为 HTTP 状态码
+- `check_stage4.py`：主体实现基础检查脚本
+- `check_stage4_detailed.py`：更细的业务边界检查脚本
+- `lesson_04_document_metadata_design.py`：综合课后题，迁移到文档元数据设计场景
+
+### 运行命令
+
+```bash
+cd /home/tkp666/FlowRAG/playground/04_mysql_sqlalchemy
+/home/tkp666/miniconda3/envs/flowrag/bin/python -m uvicorn app.main:app --reload
+```
+
+### 测试命令
+
+```bash
+cd /home/tkp666/FlowRAG
+/home/tkp666/miniconda3/envs/flowrag/bin/python playground/04_mysql_sqlalchemy/check_stage4.py
+/home/tkp666/miniconda3/envs/flowrag/bin/python playground/04_mysql_sqlalchemy/check_stage4_detailed.py
+/home/tkp666/miniconda3/envs/flowrag/bin/python playground/04_mysql_sqlalchemy/homework/lesson_04_document_metadata_design.py
+```
+
+### 测试结果
+
+- `check_stage4.py` 通过，输出：
+  - `100分：阶段 4 主体实现检查全部通过`
+- `check_stage4_detailed.py` 通过，输出：
+  - `100分：阶段 4 详细检查全部通过`
+- `lesson_04_document_metadata_design.py` 通过，输出：
+  - `lesson 04 document metadata design homework looks good`
+
+### 已知问题
+
+- 当前教学实验主要用 SQLite 本地文件和内存库检查，还没有深入真实 MySQL 部署、迁移、备份和权限配置
+- 当前没有引入 Alembic，后续正式主项目需要用迁移工具管理表结构变化
+- 当前软删除后不能重建同名知识库，因为数据库存在 `(user_id, name)` 联合唯一约束；如果主项目希望“只禁止未删除知识库重名”，需要调整唯一约束策略
+- 当前登录用户仍然是教学阶段模拟值，还没有接真实登录鉴权
+- 当前没有展开复杂事务、并发写入冲突和数据库调优
+
+### 用户需要回答的检查问题
+
+用户已完成阶段 4 检查问题，本阶段通过。
+
+复盘时需要记住的关键回答和纠偏：
+
+1. `documents.kb_id` 应该是外键，因为每个文档必须属于真实存在的知识库；外键保证引用合法，普通 int 不会检查合法性。
+2. `DocumentCreateSchema` 不应该让用户传 `id / kb_id / ingest_status / is_deleted`；这些字段应由数据库、路径参数、后端上下文或后端默认值控制。
+3. `session.add()` 把对象加入会话，`commit()` 提交并持久化，`refresh()` 从数据库同步生成值或最新值。
+4. 分页中 `items` 是当前页数据，`total` 是符合条件的全部数量，不能用 `len(items)` 代替。
+5. 软删除后列表查询必须过滤 `is_deleted == False`，过滤条件应封装在 repository 的 active 查询中，由 service 决定业务上调用哪个查询。
+
+### 下一阶段建议
+
+- 用户已经询问是否可以进入下一阶段，可以进入阶段 5：Redis 基础
+- 阶段 5 继续保持预备营小实验，不直接接入完整 FlowRAG 主项目
+- 阶段 5 重点放在 Redis 的定位、`set/get`、过期时间、计数器、简单缓存、简单限流

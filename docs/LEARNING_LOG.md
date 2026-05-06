@@ -233,3 +233,62 @@
 - 真实 Celery 的任务定义、投递、状态查询还没开始学
 - 真实 MySQL / Redis / Qdrant 客户端哪些是同步、哪些是异步，还需要后续结合具体工具判断
 - 进程池底层细节、GIL、进程通信目前只需要知道边界，不需要深挖
+
+## 2026-05-06 - 阶段 4：MySQL + SQLAlchemy 基础
+
+### 本阶段知识点
+
+- MySQL 适合存用户、知识库、文档元数据、任务状态等结构化业务数据
+- SQLAlchemy model 对应数据库表，Pydantic schema 对应 API 输入输出结构
+- 主键用于唯一标识一条记录，外键用于保证跨表引用关系合法
+- 普通索引用于加速常见查询，唯一约束用于保证业务唯一性
+- `Session` 是一次数据库操作上下文，负责 add / query / commit / refresh
+- `session.get(Model, id)` 按主键查询，`select(...).where(...)` 用于更灵活的条件查询
+- `offset / limit / order_by` 用于分页查询，`count` 用于统计总数
+- 软删除需要在 active 查询里统一过滤 `is_deleted == False`
+- service 层负责业务规则和权限边界，repository 层负责封装数据库查询能力
+
+### 这些知识在 FlowRAG 中的用途
+
+- `users` 会保存用户基础信息
+- `knowledge_bases` 会保存知识库归属、名称、描述、软删除状态
+- `documents` 会保存上传文档的元数据、入库状态和所属知识库
+- 文档属于知识库、知识库属于用户，这类关系后续都需要用外键和业务校验共同保证
+- 分页会用于知识库列表、文档列表、任务列表、对话列表
+- schema 边界会用于防止用户伪造 `user_id / kb_id / is_deleted / ingest_status` 等内部字段
+
+### 我应该掌握到什么程度
+
+- 能定义一个最小 SQLAlchemy model，并区分字段类型、nullable、index、unique、ForeignKey
+- 能说明 SQLAlchemy model 和 Pydantic schema 的职责差异
+- 能写出最小创建、按主键查询、列表分页、更新、软删除流程
+- 能解释 `add / commit / refresh` 分别做什么
+- 能判断哪些字段应该由用户传，哪些字段应该由后端上下文或数据库生成
+- 能说明外键和索引不是一回事：外键管关系合法性，索引管查询速度
+
+### 本阶段常见错误
+
+- 把外键理解成“自动加索引的 int”，忽略外键真正作用是保证引用合法
+- 把数据库 model 直接当 API schema 暴露，导致内部字段泄漏
+- 在创建 schema 中允许用户传 `user_id / kb_id / is_deleted / status` 这类内部控制字段
+- 软删除后列表查询忘记过滤 `is_deleted == False`
+- 把 `len(items)` 当成总数，忽略分页总数需要单独 `count`
+- 更新名称时把当前记录自己误判成重名冲突
+- 忘记软删除和唯一约束之间的策略冲突：`(user_id, name)` 唯一约束会阻止删除后重建同名知识库
+
+### 面试可能怎么问
+
+- MySQL 和 Qdrant 分别适合存什么？
+- SQLAlchemy model 和 Pydantic schema 有什么区别？
+- 主键、外键、索引、唯一约束分别解决什么问题？
+- `session.add()`、`session.commit()`、`session.refresh()` 分别做什么？
+- 分页接口为什么通常要同时查 `items` 和 `total`？
+- 软删除有什么好处和代价？
+- service 和 repository 在数据库 CRUD 中怎么分工？
+
+### 我还不熟的地方
+
+- 外键和索引的边界已经纠正，但后续需要在真实表设计里继续巩固
+- 软删除和唯一约束的组合策略还需要在主项目正式 schema 设计时再决策
+- 当前使用 SQLite 做教学检查，真实 MySQL 连接、迁移和部署还没有深入展开
+- Alembic 迁移、复杂事务、并发写入冲突、数据库调优暂时不深挖
