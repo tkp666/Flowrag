@@ -13,8 +13,12 @@
 - 当前项目仍处于预备营阶段，只允许在 `playground/` 范围内教学与实验。
 - 在用户未完成当前阶段检查问题、未明确同意继续前，任何 Codex 不得推进到下一阶段。
 - 当前最重要目标不是赶进度，而是按课堂模式完成讲解、提问、小节动手题、口头问题、实现、复盘和阶段检查问答。
+- 每个小节的小节动手题检查通过后，必须提出 3-5 个口头问题，用来判断用户是否能进入下一小节。
+- 用户已再次强调：口头问题、动手题和阶段主体实现质量必须高，必须避免同质化；后续 Codex 出题和实现前要先规划考察点、业务差异、验收标准和 FlowRAG 迁移价值。
+- 从阶段 5 第 3 小节开始，动手题应优先改为真实代码练习；在环境允许时，应连接真实 Redis，而不是继续只做文字判断题。
 - 预备营阶段规划已更新：在原阶段 2 后新增“阶段 3：FastAPI 异步入门”，后续 MySQL / Redis / Celery / Qdrant / Streaming 阶段顺延。
-- 阶段 3 补充专题“并发选型与线程/进程最小模板”已完成；下一步应等待用户明确同意后进入阶段 4：MySQL + SQLAlchemy 基础。
+- 阶段 5：Redis 基础已完成；综合课后动手题和阶段检查问题均已通过。
+- 当前尚未进入阶段 6；需要用户明确同意后，才能开始阶段 6：Celery 异步任务。
 - 用户已明确反馈：此前综合动手题和口头问题同质化严重。后续出题必须减少重复模板，改为考察边界判断、错误识别、设计取舍、FlowRAG 真实业务迁移；不要把刚写过的代码换名后再次布置。
 
 ---
@@ -561,3 +565,132 @@ cd /home/tkp666/FlowRAG
 - 用户已经询问是否可以进入下一阶段，可以进入阶段 5：Redis 基础
 - 阶段 5 继续保持预备营小实验，不直接接入完整 FlowRAG 主项目
 - 阶段 5 重点放在 Redis 的定位、`set/get`、过期时间、计数器、简单缓存、简单限流
+
+## 2026-05-08 - 阶段 5：Redis 基础
+
+### 阶段目标
+
+- 理解 Redis 不是 MySQL 替代品，而是缓存、计数、限流、短期状态和 Celery broker
+- 掌握 Redis key 设计、`set/get`、TTL、`expire`、`INCR`
+- 能实现 Cache Aside 查询和 MySQL 更新后的缓存失效
+- 能实现用户维度的简单固定窗口限流
+- 能把 Redis 思路迁移到 FlowRAG 的文档入库任务进度场景
+
+### 完成内容
+
+- 完成小节 1：Redis 是什么，和 MySQL 的职责边界
+  - 完成 `section_01_redis_mysql_boundary.py`
+- 完成小节 2：key-value、`set/get`、`expire`、TTL
+  - 完成 `section_02_key_ttl_design.py`
+- 完成小节 3：`INCR` 原子计数器
+  - 完成 `section_03_incr_counter.py`
+- 完成小节 4：Cache Aside 简单缓存接口
+  - 完成 `section_04_cache_aside.py`
+- 完成小节 5：简单限流接口
+  - 完成 `section_05_rate_limit_api.py`
+- 完成阶段 5 主体实现
+  - `GET /health`
+  - `POST /dev/seed`
+  - `GET /knowledge-bases/{kb_id}`
+  - `PATCH /knowledge-bases/{kb_id}`
+  - `POST /counter/{name}/incr`
+  - `GET /limited-resource`
+- 完成阶段 5 综合课后动手题
+  - `lesson_05_document_task_progress.py`
+  - 主题：文档入库任务的 Redis 过程进度和 MySQL 权威状态边界
+
+### 新增 / 修改文件
+
+- `playground/05_redis_basic/README.md`
+- `playground/05_redis_basic/requirements.txt`
+- `playground/05_redis_basic/.gitignore`
+- `playground/05_redis_basic/app/__init__.py`
+- `playground/05_redis_basic/app/db.py`
+- `playground/05_redis_basic/app/models.py`
+- `playground/05_redis_basic/app/schemas.py`
+- `playground/05_redis_basic/app/repositories.py`
+- `playground/05_redis_basic/app/services.py`
+- `playground/05_redis_basic/app/redis_client.py`
+- `playground/05_redis_basic/app/redis_services.py`
+- `playground/05_redis_basic/app/main.py`
+- `playground/05_redis_basic/check_stage5.py`
+- `playground/05_redis_basic/homework/section_01_redis_mysql_boundary.py`
+- `playground/05_redis_basic/homework/section_02_key_ttl_design.py`
+- `playground/05_redis_basic/homework/section_03_incr_counter.py`
+- `playground/05_redis_basic/homework/section_04_cache_aside.py`
+- `playground/05_redis_basic/homework/section_05_rate_limit_api.py`
+- `playground/05_redis_basic/homework/lesson_05_document_task_progress.py`
+- `docs/LEARNING_LOG.md`
+- `docs/STAGE_REPORT.md`
+
+### 关键文件作用
+
+- `app/db.py`：创建 SQLAlchemy engine、SessionLocal、初始化表结构
+- `app/models.py`：定义知识库表模型
+- `app/schemas.py`：定义健康检查、知识库详情、计数器、限流响应 schema
+- `app/repositories.py`：封装 MySQL 查询、更新、演示数据写入
+- `app/services.py`：编排 Cache Aside 查询和更新后删除缓存
+- `app/redis_client.py`：创建 Redis 客户端
+- `app/redis_services.py`：封装 Redis key、缓存读写、计数器、限流
+- `app/main.py`：提供 FastAPI 路由入口
+- `check_stage5.py`：阶段 5 主体实现一键检查脚本
+- `lesson_05_document_task_progress.py`：综合课后题，迁移到文档入库任务进度场景
+
+### 运行命令
+
+```bash
+redis-cli ping
+```
+
+```bash
+cd /home/tkp666/FlowRAG/playground/05_redis_basic
+/home/tkp666/miniconda3/envs/flowrag/bin/python -m uvicorn app.main:app --reload
+```
+
+### 测试命令
+
+```bash
+cd /home/tkp666/FlowRAG/playground/05_redis_basic
+/home/tkp666/miniconda3/envs/flowrag/bin/python check_stage5.py
+```
+
+综合课后题完成后运行：
+
+```bash
+cd /home/tkp666/FlowRAG
+/home/tkp666/miniconda3/envs/flowrag/bin/python playground/05_redis_basic/homework/lesson_05_document_task_progress.py
+```
+
+### 测试结果
+
+- `check_stage5.py` 已通过，输出：
+  - `100分：阶段 5 主体实现检查全部通过`
+- 真实 Redis 连接在当前沙箱中需要提升权限运行；用户本机直接运行时，先确保 `redis-cli ping` 返回 `PONG`
+- `lesson_05_document_task_progress.py` 已通过，输出：
+  - `lesson 05 document task progress homework looks good`
+
+### 已知问题
+
+- 当前主体实现使用 SQLite 文件 + SQLAlchemy 做教学实验，没有直接连接真实 MySQL
+- 当前没有加入异步数据库读写；正式项目第一版数据库和 Redis 仍建议先用同步实现
+- 当前没有学习 Celery，所以文档任务进度作业只模拟状态，不真正投递后台任务
+- 当前使用固定窗口限流，未引入滑动窗口、令牌桶、Lua 脚本等复杂限流方案
+- Redis 持久化、集群、哨兵暂时不展开
+
+### 用户需要回答的检查问题
+
+用户已完成阶段 5 检查问题，本阶段通过。
+
+复盘时需要记住的关键回答和纠偏：
+
+1. Redis 适合保存限流计数、验证码、上传/入库过程进度等短期状态；MySQL 适合保存知识库、用户、文档等长期权威数据。
+2. Cache Aside 第一次查询 Redis miss 后回源 MySQL 并写缓存；第二次命中 Redis；MySQL 更新后删除对应 Redis 缓存。
+3. 限流应使用 Redis `INCR`，因为它是原子计数操作；还要在 `count == 1` 时设置 TTL，避免每次请求刷新窗口。
+4. 文档入库过程进度放 Redis，最终状态和失败原因放 MySQL，因为后两者需要长期追溯并作为权威事实。
+5. Redis 进度丢失但 MySQL 仍是 `running` 时，接口应返回进度暂时缺失或 `missing`，不能直接误判任务失败。
+
+### 下一阶段建议
+
+- 用户明确同意后，进入阶段 6：Celery 异步任务
+- 阶段 6 应继续保持预备营小实验，不直接开发完整 FlowRAG 主项目
+- 阶段 6 重点讲清同步请求、后台任务、Redis broker、任务状态查询之间的边界
