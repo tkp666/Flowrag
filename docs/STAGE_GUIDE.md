@@ -33,6 +33,59 @@
 10. 一整节课结束时，必须明确宣布结束，并布置 `综合课后动手题`；
 11. 一个阶段结束后，必须先让用户回答 `阶段检查问题`，在用户回答并明确同意前，不能进入下一阶段。
 
+## 阶段 6 起默认启用：详细概念块模式
+
+从 `阶段 6：Celery 异步任务` 开始，后续预备营阶段默认使用 `详细概念块模式`。这是用户明确要求的提速方案，但必须注意：提速只压缩低信息量流程，不压缩讲解深度。阶段 6、7、8 用户基本都是 0 基础，讲解要更细、更贴代码、更贴运行过程。
+
+从 2026-05-12 起，阶段 6 及后续阶段默认采用 `模式 D：Codex 主讲主写，用户主理解提问`。Codex 可以直接给出讲解、问题答案、代码实现、运行验证和代码复盘；用户主要负责理解和追问。除非用户主动要求自己动手写，不再强制用户完成每个小节动手题和口头问题后才能推进。
+
+详细概念块模式的原则：
+
+- 不再把每个微小知识点都拆成独立的“小节讲解 -> 小节动手题 -> 口头问题”；
+- 每个阶段合并为 2-3 个概念块，每个概念块覆盖多个强相关小点；
+- 复杂或 0 基础阶段优先使用 3 个概念块，不要硬压成 2 个；
+- 每个概念块必须详细讲解，并结合代码、现有文件、错误示例、运行命令或最小可运行片段；
+- 每个阶段通常只保留 1-2 个高质量小节动手题或主体实现前检查；
+- 小节动手题和口头问题必须覆盖不同能力点，不能做同质化填空；
+- 每个概念块后的口头问题默认压缩为 3 个高质量问题；
+- 阶段主体实现、综合课后动手题、阶段检查问题仍然不能省略；
+- 用户表示没懂、要求慢一点或要求重讲时，立即暂停提速，回到解释和局部练习；
+- 阶段结束后仍必须更新 `docs/LEARNING_LOG.md` 和 `docs/STAGE_REPORT.md`。
+- 阶段 6、7、8 必须默认按 0 基础设计讲解：先解释名词和运行角色，再解释代码，再解释 FlowRAG 场景迁移。
+- 模式 D 下，小节动手题可以改为 Codex 自问自答式讲解或直接代码实现；阶段检查问题仍需给出，但可以附参考答案，用户只需指出不懂或不同意的地方。
+
+推荐流程：
+
+```text
+阶段目标 / 边界 / 掌握标准
+  -> 概念块 A：详细讲解 + 代码/命令/错误示例 + 提问空间
+  -> 概念块 B：详细讲解 + 代码/命令/错误示例 + 提问空间
+  -> 概念块 C：详细讲解 + FlowRAG 迁移 + 提问空间（复杂阶段必须保留）
+  -> 1-2 个综合小节动手题或主体实现前检查
+  -> 每个关键概念块 3 个高质量口头问题
+  -> 阶段主体实现规划
+  -> 用户明确同意后开始实现
+  -> 运行 / 测试 / 复盘
+  -> 明确宣布本节课结束
+  -> 综合课后动手题
+  -> 阶段检查问题
+```
+
+对阶段 6、7、8 的具体建议：
+
+- 阶段 6 Celery：默认 3 个概念块：
+  1. 任务边界与角色模型：什么时候用 Celery、什么时候不用、`.delay`、broker、worker、task、result backend、为什么不传文件字节流；
+  2. 最小 Celery worker 运行：`celery_app.py`、`tasks.py`、Redis broker/backend、worker 启动命令、任务成功/失败；
+  3. FastAPI 接入 Celery 与状态查询：保持 `router / schema / service / repository` 分层思路，`POST /tasks` 立即返回 `task_id`、`GET /tasks/{task_id}` 查询状态、Celery 状态和业务状态的区别。
+- 阶段 7 Qdrant：默认 3 个概念块：
+  1. 向量检索基本模型：embedding 向量、相似度搜索、collection、point、payload、top-k；
+  2. Qdrant 最小写入与查询：创建 collection、upsert points、query/search、payload 返回、向量维度一致性；
+  3. FlowRAG 检索边界：MySQL 存文档元数据，Qdrant 存 chunk 向量，检索结果如何回到引用和 chunk 信息。
+- 阶段 8 Streaming：默认 3 个概念块：
+  1. 普通响应 vs 流式响应：为什么 LLM 回答适合流式、普通 JSON 的等待问题、生成器基本形态；
+  2. FastAPI `StreamingResponse` 最小实现：`yield`、`StreamingResponse`、`text/plain` 或 SSE 基础、客户端如何消费；
+  3. FlowRAG 流式问答边界：检索先完成再流式生成、引用信息如何处理、流式接口和 Celery 的区别、什么时候用 WebSocket。
+
 ## 出题质量要求
 
 后续 Codex 布置口头问题、小节动手题、综合课后动手题时，必须避免严重同质化。
@@ -613,10 +666,27 @@ playground/06_celery_basic/
   README.md
   requirements.txt
   app/
+    __init__.py
     main.py
     celery_app.py
+    schemas.py
     tasks.py
+    api/
+      __init__.py
+      task_router.py
+    services/
+      __init__.py
+      task_service.py
 ```
+
+说明：
+
+- `app/api/task_router.py`：HTTP 入口，调用 service，不直接写复杂 Celery 逻辑；
+- `app/schemas.py`：请求体和响应体结构；
+- `app/services/task_service.py`：封装任务提交、状态查询、模拟业务执行逻辑；Celery 作为 service 使用的后台任务工具；
+- `app/celery_app.py`：Celery 工具配置，负责 broker/backend/include；
+- `app/tasks.py`：Celery worker 入口文件，用 `@celery_app.task` 注册任务；不要把它理解成新的业务层；
+- 本阶段暂时不接 MySQL / Qdrant，因此可以没有 repository；后续正式 FlowRAG 中，service 会通过 repository 访问 MySQL / Redis / Qdrant。
 
 ## 必须讲清楚
 
@@ -629,6 +699,9 @@ playground/06_celery_basic/
 - result backend 是什么；
 - Redis 在 Celery 中可以承担什么角色；
 - 队列里为什么不要传大文件内容，只传 task_id / document_id / file_path 这类小信息。
+- Celery 不是 `router / schema / service / repository` 之外的新业务层；
+- `tasks.py` 是 worker 入口文件，复杂业务逻辑仍应放在 service；
+- service 可以使用 Celery 投递后台任务，但 router 不应到处散落 `.delay(...)`。
 
 ## 当前禁止
 

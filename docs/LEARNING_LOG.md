@@ -352,3 +352,243 @@
 - 当前主体实现使用 SQLite + SQLAlchemy 模拟真实数据库，正式主项目再切到 MySQL
 - 阶段 5 综合课后动手题已完成并通过检查
 - 限流题回答时要主动提到 `INCR` 的原子性：并发下不能用 `get -> +1 -> set`
+
+## 2026-05-11 - 阶段 6 起课堂节奏调整：详细概念块模式
+
+### 调整原因
+
+- 用户反馈前面阶段按完整逐小节流程推进过慢，每个阶段大约需要两天
+- 后续还需要完成 Celery、Qdrant、Streaming，并尽快进入 FlowRAG 主项目
+- 继续机械拆分小节会增加低信息量重复，影响 6 月投递版进度
+
+### 新节奏
+
+- 从阶段 6 起默认启用 `详细概念块模式`
+- 每个阶段合并为 2-3 个概念块
+- 复杂或 0 基础阶段优先使用 3 个概念块，不硬压成 2 个
+- 每个概念块仍必须详细讲解，并结合代码、错误示例、运行命令或最小可运行片段
+- 每个阶段保留 1-2 个高质量小节动手题或主体实现前检查
+- 口头问题压缩为 3 个关键问题
+- 阶段主体实现、综合课后动手题、阶段检查问题仍不可省略
+- 阶段 6、7、8 必须按 0 基础组织：先讲名词和运行角色，再讲代码，再讲 FlowRAG 迁移
+
+### 质量底线
+
+- 不减少必须掌握的知识点
+- 不压缩讲解深度，只压缩低信息量流程
+- 不跳过代码运行和检查
+- 不再布置大量同质化填空题
+- 优先做真实可运行实验、错误设计修正和 FlowRAG 场景迁移
+- 如果用户表示没懂或要求慢一点，立即暂停提速并回到解释
+
+### 阶段 6 重置说明
+
+- 用户要求清空阶段 6 目录，并按详细概念块模式重新进入阶段 6
+- 旧的阶段 6 小节练习文件已删除
+- 新阶段 6 应直接围绕 Celery 最小可运行实验组织讲解和练习
+- 已讲过的 `.delay / broker / worker / result backend / 不传文件字节流` 概念不需要机械重复出题，但需要在主体实现和检查问题中确认掌握
+
+### 阶段 6 分层纠偏
+
+- Celery 不是新的业务分层，不应讲成“Celery 层”
+- 继续坚持阶段 2 的 `router / schema / service / repository` 思路
+- `celery_app.py` 是 Celery 配置文件，属于工具接入
+- `tasks.py` 是 worker 入口文件，用于注册 Celery task，也属于工具接入
+- service 可以封装任务投递、状态查询和业务流程编排
+- router 不应散落复杂 `.delay(...)` 调用，应该调用 service
+- 本阶段不接 MySQL / Qdrant，因此可以暂时没有 repository；后续接存储时由 repository 负责底层访问
+
+### 2026-05-12 课堂职责调整
+
+- 用户要求后续由 Codex 主讲、主写、给出问题答案、给代码并讲代码
+- 用户主要负责理解和追问，不再强制承担每个小节的动手题和口头问题
+- 后续默认使用 `模式 D：Codex 主讲主写，用户主理解提问`
+- 小节动手题和口头问题可以改为 Codex 自问自答式讲解
+- 阶段主体实现由 Codex 直接规划、实现、运行验证和复盘
+- 质量底线不变：不能省略关键概念、运行验证、常见报错和 FlowRAG 迁移说明
+
+### 阶段 6-8 默认概念块
+
+- 阶段 6 Celery：
+  1. 任务边界与角色模型；
+  2. 最小 Celery worker 运行；
+  3. FastAPI 接入 Celery 与状态查询。
+- 阶段 7 Qdrant：
+  1. 向量检索基本模型；
+  2. Qdrant 最小写入与 top-k 查询；
+  3. MySQL / Qdrant 职责边界与 FlowRAG 检索迁移。
+- 阶段 8 Streaming：
+  1. 普通响应与流式响应区别；
+  2. FastAPI `StreamingResponse` 最小实现；
+  3. FlowRAG 流式问答、引用返回和 Celery 边界。
+
+## 2026-05-12 - 阶段 6：Celery 异步任务主体实现
+
+### 本阶段知识点
+
+- Celery 适合当前 API 不应该等待完成的后台耗时任务
+- `.delay(...)` 是任务投递快捷方式，不是在当前 API 进程里直接执行函数
+- Redis 在本阶段同时作为 Celery broker 和 result backend，但二者职责不同
+- broker 负责暂存待执行任务消息，worker 从 broker 取任务并执行
+- result backend 负责保存任务执行结果和状态，API 可通过 `task_id` 查询
+- `tasks.py` 是 worker 可发现的任务入口，不是新的业务层
+- `service` 可以封装任务投递、状态查询和业务函数，router 不直接散落 Celery 细节
+- `PENDING` 既可能表示任务还没执行，也可能表示 result backend 查不到该 `task_id`
+- `task_track_started=True` 只能让 worker 有机会写入 `STARTED`，查询端是否看见还取决于任务执行时机和轮询时机
+
+### 这些知识在 FlowRAG 中的用途
+
+- 文档上传后，API 应尽快返回任务 ID，不应该等待解析、切块、embedding 和入库全部完成
+- 文档入库任务可由 Celery worker 在后台执行
+- Redis 可以作为 Celery broker，也可以保存短期进度；最终任务状态仍应写入 MySQL
+- 正式项目中 router 继续调用 service，service 负责投递 Celery 任务和查询任务状态
+- worker 入口任务应保持较薄，真正业务流程应交给 service 或后续专门的业务编排函数
+
+### 我应该掌握到什么程度
+
+- 能画出 `API -> service -> broker -> worker -> result backend -> API 查询` 的链路
+- 能解释 `.delay(...)` 为什么立即返回 `task_id`
+- 能区分 broker、worker、task、result backend
+- 能解释为什么不把大文件字节流直接塞进 Celery 消息
+- 能读懂 `celery_app.py / tasks.py / task_service.py / task_router.py` 的职责
+- 能说明 Celery 不改变原来的 `router / schema / service / repository` 分层
+
+### 本阶段常见错误
+
+- 把 Celery 当成新的业务层，破坏原来的 service 分层
+- 在 router 里到处直接调用 `.delay(...)`，导致任务投递逻辑分散
+- 以为 `.delay(...)` 会在当前请求里等待任务执行完
+- 把文件字节流、数据库 session、request 对象等复杂或大对象直接传给 worker
+- 没有让 worker 导入任务模块，导致 worker 不知道任务存在
+- 把 `PENDING` 直接理解成“任务一定正在排队”
+
+### 面试可能怎么问
+
+- Celery 的 broker、worker、result backend 分别是什么？
+- `.delay(...)` 做了什么？它和直接调用函数有什么区别？
+- 为什么上传文件后通常只传文件路径或对象存储 key 给 Celery？
+- Celery 接入后，原来的 router / service / repository 分层怎么保持？
+- 为什么 `PENDING` 不能直接等同于“任务正在执行中”？
+
+### 我还不熟的地方
+
+- 正式 FlowRAG 中还需要把任务最终状态写入 MySQL，本阶段暂时只查 Celery result backend
+- 文档入库的真实解析、切块、embedding、Qdrant 写入还没开始
+- Celery 重试、超时、任务幂等、并发池调优和监控暂时不深挖
+
+## 2026-06-04 - 阶段 7：Qdrant 最小向量检索
+
+### 课堂纠偏说明
+
+- 阶段 7 代码曾被 Codex 直接生成并验证通过，但没有先完成基础概念讲解和代码导读
+- 用户已明确反馈看不懂实现内容，说明阶段 7 不能按“已完成学习”处理
+- 已暂停推进阶段 8，并从 Qdrant / embedding / vector / payload / top-k / filter 的基础概念重新讲起
+- 已围绕现有代码完成 mock embedding、Qdrant 写入、top-k 查询、`kb_id` filter、运行命令和阶段检查问题导读
+- 用户已在 2026-06-10 确认阶段 7 检查问题没有不清楚的地方
+
+### 本阶段知识点
+
+- embedding 向量是文本的数值表示，真实项目中由 `EmbeddingProvider` 产生
+- 本阶段用 mock embedding 稳定模拟向量，避免把模型 API 和 Qdrant 基础混在一起
+- Qdrant `collection` 是一组向量点的集合，collection 内向量维度必须一致
+- Qdrant `point` 通常包含 `id`、`vector` 和 `payload`
+- `payload` 保存检索后需要回溯的业务信息，例如 `text`、`document_id`、`kb_id`、`chunk_index`
+- top-k 检索返回最相似的前 k 条 point
+- `kb_id` filter 用于把检索范围限制在当前知识库内，避免跨知识库返回结果
+- 低分结果仍可能被 top-k 返回，真实项目后续还需要 `score_threshold`、rerank 或更好的 embedding
+
+### 这些知识在 FlowRAG 中的用途
+
+- 文档入库时，文档会先切成 chunks，再为每个 chunk 生成 embedding
+- chunk 向量会写入 Qdrant，chunk 的业务归属和引用字段会放在 payload 中
+- 用户发起问答时，查询文本会先转成 query embedding，再到 Qdrant 做 top-k 检索
+- `kb_id` filter 会确保只在当前知识库内检索
+- Qdrant 返回的 `document_id` 和 `chunk_index` 是后续引用回溯的基础
+- MySQL 保存权威业务数据，Qdrant 保存向量和检索必要 payload，二者不是替代关系
+
+### 我应该掌握到什么程度
+
+- 能解释 `collection / point / vector / payload / top-k / filter` 的含义
+- 能读懂 `mock_embedding.py` 如何把文本转成固定维度向量
+- 能读懂 `qdrant_client.py` 如何创建 collection、写入 points、执行检索
+- 能说明为什么检索必须带 `kb_id` filter
+- 能说明为什么 Qdrant 不适合替代 MySQL 存权威业务数据
+- 能说明真实项目中 mock embedding 会被 `EmbeddingProvider` 替换
+
+### 本阶段常见错误
+
+- 把 Qdrant 当成 MySQL 的替代品，把所有业务字段都塞进 Qdrant
+- 只存 vector，不存 `document_id / kb_id / chunk_index`，导致检索后无法引用回溯
+- 创建 collection 时向量维度和后续写入向量维度不一致
+- 检索时忘记加 `kb_id` filter，导致跨知识库返回结果
+- 误以为 top-k 返回的一定都是高质量结果，忽略低分结果和阈值判断
+- 把 mock embedding 当成真实语义能力，忽略它只是教学替身
+
+### 面试可能怎么问
+
+- Qdrant 里的 collection、point、vector、payload 分别是什么？
+- 为什么 FlowRAG 需要 MySQL + Qdrant，而不是只用其中一个？
+- 为什么向量检索时必须加 `kb_id` filter？
+- document_id 和 chunk_index 对引用回溯有什么作用？
+- 真实项目中 mock embedding 应该替换成什么？
+
+### 我还不熟的地方
+
+- 真实 embedding 模型的选择、调用和批量写入还没开始
+- Qdrant 的索引参数、集合优化、删除更新、备份迁移暂时不深挖
+- 混合检索、rerank、score threshold、引用排序会在正式 FlowRAG 或后续阶段再展开
+
+## 2026-06-11 - 阶段 8：Streaming 流式接口
+
+### 本阶段知识点
+
+- 普通 JSON 响应必须等完整结果生成后一次性返回，流式响应可以在一个 HTTP 连接中分多次返回内容
+- Python 生成器 / 异步生成器可以通过 `yield` 一段段产出数据，`StreamingResponse` 会消费这些数据并写回客户端
+- SSE 是基于 HTTP 的单向服务端推送格式，典型格式是 `event: ...`、`data: ...`，并用空行分隔事件
+- `media_type="text/event-stream"` 表示当前响应是 SSE 流
+- `curl -N` 可以关闭客户端侧缓冲，更容易观察一段段返回
+- 流式响应开始前还能返回正常 HTTP 错误；流开始后通常不能再改 HTTP 状态码，只能在流里发送 `error` 事件
+- FlowRAG 问答一般应先完成检索，再返回 references，然后流式返回 LLM token
+- Celery 适合后台长任务，SSE 适合当前请求正在生成并需要持续返回结果，WebSocket 适合双向实时通信
+
+### 这些知识在 FlowRAG 中的用途
+
+- 聊天问答接口可以用 SSE 边生成边返回 token，降低用户等待感
+- 检索得到的引用片段可以先通过 `references` 事件返回给前端
+- LLM 生成中的 token 可以通过 `token` 事件持续返回
+- 检索失败或模型中途失败时，可以用 `error` 事件让前端停止等待并展示错误状态
+- 文档上传和入库仍应交给 Celery，不应该用一个长 SSE 请求一直挂着做后台入库
+- 正式主项目中，`mock_rag.py` 会逐步替换为 `RetrievalService`、`LLMProvider` 和 `ChatService`
+
+### 我应该掌握到什么程度
+
+- 能解释普通 JSON 响应和流式响应的区别
+- 能读懂 `StreamingResponse(generator, media_type=...)` 的基本形态
+- 能解释 SSE 的 `event / data / \n\n` 分别起什么作用
+- 能说明为什么流开始前错误和流开始后错误处理方式不同
+- 能设计 FlowRAG 最小事件顺序：`status -> references -> status -> token -> done/error`
+- 能区分聊天流式生成、文档后台入库和双向实时通信分别适合 SSE、Celery 还是 WebSocket
+
+### 本阶段常见错误
+
+- 以为 `StreamingResponse` 自己会凭空生成数据，忽略必须传入可迭代对象或生成器
+- 把所有失败都写成 `raise HTTPException(500)`，没有区分流开始前和流开始后
+- 忘记 SSE 事件之间的空行，导致客户端无法正确拆分事件
+- 把普通 `text/plain` 流当成完整业务流，导致前端无法区分 token、引用、错误和结束
+- 在 `async def` 或异步生成器里调用同步阻塞 SDK，导致事件循环被卡住
+- 误以为 SSE 能替代 Celery，把文档入库这类后台任务也设计成长连接
+
+### 面试可能怎么问
+
+- 普通响应和流式响应有什么区别？为什么 LLM 问答适合流式？
+- FastAPI 的 `StreamingResponse` 需要什么样的数据源？
+- SSE 的基本格式是什么？为什么要有 `event` 和 `data`？
+- 流已经开始后，后端还能随便改 HTTP 状态码吗？出错怎么办？
+- FlowRAG 为什么通常先检索再流式生成？
+- SSE、WebSocket、Celery 分别适合什么场景？
+
+### 我还不熟的地方
+
+- 真实 LLM Provider 的流式 SDK 接入还没开始
+- 真实 Qdrant 检索结果如何和 MySQL 文档元数据组合成更完整引用，还需要进入主项目后落地
+- 生产环境中的代理缓冲、超时、心跳、断线重连和客户端取消暂时只讲了边界，没有深入实现
